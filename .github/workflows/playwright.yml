@@ -1,0 +1,66 @@
+name: Scheduled & Triggered Playwright TS CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  repository_dispatch:
+    types: [run-regression-suite]
+
+# 1. CRITICAL: Grant the workflow permission to write code and update GitHub Pages branches
+permissions:
+  contents: write
+
+jobs:
+  run-functional-tests:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Testing Repo Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Framework Dependencies
+        run: npm install
+
+      - name: Install Playwright Standalone System Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright Regression Suite Against Live URL
+        run: npx playwright test
+        continue-on-error: true # Ensures formatting and reporting run even if tests fail
+
+      # 2. Get the historical metrics from the previous runs to draw trending graphs
+      - name: Load Allure History
+        uses: actions/checkout@v4
+        if: always()
+        with:
+          ref: gh-pages
+          path: gh-pages-dir
+          continue-on-error: true
+
+      # 3. Pull down the Allure engine and stitch the new results with historical trends
+      - name: Generate Allure Graphical Report with History Trends
+        uses: simple-elf/allure-report-action@master
+        if: always()
+        with:
+          allure_results: allure-results
+          allure_report: allure-report
+          allure_history: allure-history
+          keep_reports: 20
+
+      # 4. Commit and push the static HTML dashboard folder onto the gh-pages hosting thread
+      - name: Deploy Allure Report Directly to Live GitHub Pages 🚀
+        uses: peaceiris/actions-gh-pages@v4
+        if: always()
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
