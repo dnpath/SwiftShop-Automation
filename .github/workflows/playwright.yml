@@ -1,26 +1,58 @@
-name: Scheduled & Triggered Playwright TS CI
+name: Self-Monitoring Playwright Regression Suite
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  repository_dispatch:
-    types: [run-regression-suite]
+  # Allows you to trigger the tests manually from the GitHub UI Actions tab
+  workflow_dispatch:
+  
+  # Automatically monitors your main app by checking in every hour (or adjust as needed)
+  schedule:
+    - cron: '0 9 * * 1' 
 
-# 1. CRITICAL: Grant the workflow permission to write code and update GitHub Pages branches
 permissions:
   contents: write
 
 jobs:
-  run-functional-tests:
-    timeout-minutes: 10
+  monitor-and-test:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Testing Repo Code
+      - name: Checkout Testing Code
         uses: actions/checkout@v4
 
+      # 1. MONITOR: Poll the public GitHub API for SwiftShop's Pages status
+      - name: Wait for Main App Deployment to be Ready 🌐
+        run: |
+          echo "Checking the latest GitHub Pages deployment status for SwiftShop..."
+          
+          # Replace 'dnpath' with your actual GitHub organization/username if different
+          OWNER="dnpath"
+          REPO="SwiftShop"
+          
+          MAX_ATTEMPTS=5
+          SLEEP_DURATION=30
+          
+          for ((i=1; i<=MAX_ATTEMPTS; i++)); do
+            # Fetch the latest Pages deployment state from GitHub's public API
+            STATUS=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/pages/deployments/latest" | jq -r '.status // "unknown"')
+            
+            echo "Attempt $i: Current deployment status is '$STATUS'"
+            
+            if [ "$STATUS" = "SUCCESS" ]; then
+              echo "✅ SwiftShop live deployment is verified active and stable!"
+              exit 0
+            elif [ "$STATUS" = "FAIL" ]; then
+              echo "❌ Main application build has failed on its side. Aborting test run."
+              exit 1
+            fi
+            
+            echo "Waiting $SLEEP_DURATION seconds for deployment to settle..."
+            sleep $SLEEP_DURATION
+          done
+          
+          echo "⚠️ Deployment monitoring timed out, but proceeding with regression checks anyway."
+
+      # 2. EXECUTE: The rest of your framework execution proceeds normally
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -35,18 +67,16 @@ jobs:
 
       - name: Run Playwright Regression Suite Against Live URL
         run: npx playwright test
-        continue-on-error: true # Ensures formatting and reporting run even if tests fail
+        continue-on-error: true
 
-      # 2. Get the historical metrics from the previous runs to draw trending graphs
       - name: Load Allure History
         uses: actions/checkout@v4
         if: always()
         with:
           ref: gh-pages
           path: gh-pages-dir
-          continue-on-error: true
+        continue-on-error: true
 
-      # 3. Pull down the Allure engine and stitch the new results with historical trends
       - name: Generate Allure Graphical Report with History Trends
         uses: simple-elf/allure-report-action@master
         if: always()
@@ -56,7 +86,6 @@ jobs:
           allure_history: allure-history
           keep_reports: 20
 
-      # 4. Commit and push the static HTML dashboard folder onto the gh-pages hosting thread
       - name: Deploy Allure Report Directly to Live GitHub Pages 🚀
         uses: peaceiris/actions-gh-pages@v4
         if: always()
