@@ -8,7 +8,7 @@ A scalable, type-safe end-to-end test automation framework built using **Playwri
 
 | Metric / Asset | Status & Links |
 | :--- | :--- |
-| **Latest Regression Run** | ![Self-Monitoring Dual Reporting Regression Suite](https://github.com/dnpath/SwiftShop-Automation/actions/workflows/playwright-ci.yml/badge.svg) |
+| **Latest Regression Run** | ![Reporting Regression Suite](https://github.com/dnpath/SwiftShop-Automation/actions/workflows/playwright.yml/badge.svg) |
 | **Allure Analytics Dashboard** | [📈 View Interactive Trends (Root)](https://dnpath.github.io/SwiftShop-Automation/) |
 | **Playwright Native HTML Report** | [🔍 View Detailed Traces & Logs (/playwright)](https://dnpath.github.io/SwiftShop-Automation/playwright/) |
 
@@ -22,7 +22,7 @@ A scalable, type-safe end-to-end test automation framework built using **Playwri
 * **Runner:** Playwright Test
 * **Pattern:** Page Object Model (POM)
 * **Reporting:** Integrated Allure HTML Engine + Playwright HTML Reporter
-* **CI/CD Lifecycle:** Self-monitoring GitHub Actions Runner (Polls `SwiftShop` deployment endpoints without cross-repo workflow mutations).
+* **CI/CD Lifecycle:** Self-monitoring GitHub Actions Runner (Polls `SwiftShop` deployment endpoints without cross-repo workflow mutations | also SwiftShop page deployment trigger a dispatch to run regresson suite).
 
 ```text
 ├── .github/workflows/   # CI schedules and polling pipelines
