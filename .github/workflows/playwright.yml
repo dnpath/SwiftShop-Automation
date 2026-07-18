@@ -109,10 +109,14 @@ jobs:
           allure_history: allure-history
           keep_reports: 20
 
-      # 5. MERGE: Inject the Playwright HTML report into the subfolder of the Allure deployment directory
+     # 5. MERGE: Inject the Playwright HTML report into the subfolder of the Allure deployment directory
       - name: Structure Consolidated Web Dashboard Directory
         if: always()
         run: |
+          echo "Fixing directory permissions..."
+          # FIX: Reclaim ownership of the allure-report folder from root
+          sudo chown -R $USER:$USER allure-report
+          
           echo "Merging report folders..."
           # Creates a subfolder named 'playwright' inside the allure-report root
           mkdir -p allure-report/playwright
