@@ -1,17 +1,27 @@
 {
-  "name": "mytshop",
+  "name": "swiftshop-automation",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {},
-  "keywords": [],
+  "description": "Playwright TypeScript Page Object Model automation framework for SwiftShop",
+  "type": "module",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "report:playwright": "npx playwright show-report",
+    "report:allure": "allure generate allure-results --clean -o allure-report && allure open allure-report"
+  },
+  "keywords": [
+    "playwright",
+    "typescript",
+    "automation",
+    "qa",
+    "allure"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
-    "@types/node": "^26.1.1",
-    "allure-commandline": "^2.43.0",
-    "allure-playwright": "^3.10.2"
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^20.11.0",
+    "allure-commandline": "^2.32.0",
+    "allure-playwright": "^3.0.5"
   }
 }
