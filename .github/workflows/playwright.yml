@@ -3,6 +3,10 @@ name: Self-Monitoring Playwright Regression Suite
 on:
   # Allows you to trigger the tests manually from the GitHub UI Actions tab
   workflow_dispatch:
+
+  # triggered from app page build --
+  repository_dispatch:
+    types: [run-regression-suite]
   
   # Automatically monitors your main app by checking in every hour (or adjust as needed)
   schedule:
