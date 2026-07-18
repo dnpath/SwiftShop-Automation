@@ -17,7 +17,7 @@
     "allure"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.49.1",
     "@types/node": "^20.11.0",
