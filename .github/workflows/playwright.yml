@@ -1,10 +1,12 @@
-name: Self-Monitoring Playwright Regression Suite
+name: Playwright Regression Suite
+# Runs on Scheduled Time, Triggered with Dispatch ping after app is deployed | or Manually.
 
 on:
   # Allows you to trigger the tests manually from the GitHub UI Actions tab
   workflow_dispatch:
 
-  # triggered from app page build --
+  # triggered from app page build | after the app deployment completed successfully. --
+  # trigger:: https://github.com/dnpath/SwiftShop/blob/main/.github/workflows/trigger-playwright-tests.yml
   repository_dispatch:
     types: [run-regression-suite]
   
