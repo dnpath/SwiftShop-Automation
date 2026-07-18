@@ -12,7 +12,7 @@ on:
   
   # Automatically monitors your main app by checking in every hour (or adjust as needed)
   schedule:
-    - cron: '0 9 * * 1' 
+    - cron: '0 9 * * 1'
 
 permissions:
   contents: write
@@ -26,44 +26,43 @@ jobs:
       - name: Checkout Testing Code
         uses: actions/checkout@v4
 
-      # 1. MONITOR: Poll the public GitHub Deployments API for SwiftShop's Pages status
+      # 1. MONITOR: Poll the public GitHub Deployments API safely
       - name: Wait for Main App Deployment to be Ready 🌐
         run: |
           echo "Checking the latest GitHub Pages environment deployment status for SwiftShop..."
-          
           OWNER="dnpath"
           REPO="SwiftShop"
-          
           MAX_ATTEMPTS=6
           SLEEP_DURATION=30
           
           for ((i=1; i<=MAX_ATTEMPTS; i++)); do
-            # 1. Fetch the latest deployment ID specifically assigned to the github-pages environment
-            DEPLOYMENT_ID=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/deployments?environment=github-pages&per_page=1" | jq -r '.[0].id // "null"')
+            RESPONSE=$(curl -s -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$OWNER/$REPO/deployments?environment=github-pages&per_page=1")
+            TYPE=$(echo "$RESPONSE" | jq -r 'type')
             
-            if [ "$DEPLOYMENT_ID" = "null" ]; then
-              echo "Attempt $i: No GitHub Pages deployments discovered yet."
+            if [ "$TYPE" != "array" ]; then
+              echo "Attempt $i: API rate limit hit or route unavailable. Response received: $RESPONSE"
             else
-              # 2. Fetch the deployment's status histories using its unique ID
-              STATUS=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/deployments/$DEPLOYMENT_ID/statuses?per_page=1" | jq -r '.[0].state // "unknown"')
-              
-              echo "Attempt $i: Current deployment state for ID $DEPLOYMENT_ID is '$STATUS'"
-              
-              if [ "$STATUS" = "success" ]; then
-                echo "✅ SwiftShop live deployment is verified active, successful, and stable!"
-                exit 0
-              elif [ "$STATUS" = "failure" ] || [ "$STATUS" = "error" ]; then
-                echo "❌ Main application build has failed deployment. Aborting test run."
-                exit 1
+              DEPLOYMENT_ID=$(echo "$RESPONSE" | jq -r '.[0].id // "null"')
+              if [ "$DEPLOYMENT_ID" = "null" ]; then
+                echo "Attempt $i: No GitHub Pages deployments discovered yet."
+              else
+                STATUS_RESPONSE=$(curl -s -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$OWNER/$REPO/deployments/$DEPLOYMENT_ID/statuses?per_page=1")
+                STATUS=$(echo "$STATUS_RESPONSE" | jq -r '.[0].state // "unknown"')
+                echo "Attempt $i: Current deployment state for ID $DEPLOYMENT_ID is '$STATUS'"
+                
+                if [ "$STATUS" = "success" ]; then
+                  echo "✅ SwiftShop live deployment is verified active!"
+                  exit 0
+                elif [ "$STATUS" = "failure" ] || [ "$STATUS" = "error" ]; then
+                  echo "❌ Main application build has failed deployment."
+                  exit 1
+                fi
               fi
             fi
-            
-            echo "Waiting $SLEEP_DURATION seconds for deployment status to resolve..."
             sleep $SLEEP_DURATION
           done
-          
-          echo "⚠️ Deployment monitoring timed out, but proceeding with regression checks anyway."
-      # 2. EXECUTE: The rest of your framework execution proceeds normally
+
+      # 2. RUNTIME ENVIRONMENT SETUP
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -76,11 +75,12 @@ jobs:
       - name: Install Playwright Standalone System Browsers
         run: npx playwright install --with-deps
 
-      - name: Run Playwright Regression Suite Against Live URL
+      - name: Run Playwright Regression Suite
         run: npx playwright test
         continue-on-error: true
 
-      - name: Load Allure History
+      # 3. FIX TRENDS: Checkout old deployment histories
+      - name: Load Previous Allure History Threads
         uses: actions/checkout@v4
         if: always()
         with:
@@ -88,7 +88,19 @@ jobs:
           path: gh-pages-dir
         continue-on-error: true
 
-      - name: Generate Allure Graphical Report with History Trends
+      # 4. FIX TRENDS: Inject history profile back into raw results before compiling
+      - name: Bind Historic Metrics to New Results
+        if: always()
+        run: |
+          mkdir -p allure-results
+          if [ -d "gh-pages-dir/history" ]; then
+            echo "Found historical records. Injecting trend mapping files..."
+            cp -r gh-pages-dir/history allure-results/
+          else
+            echo "No historic trends discovered yet. Starting fresh trend record."
+          fi
+
+      - name: Generate Allure Graphical Report HTML
         uses: simple-elf/allure-report-action@master
         if: always()
         with:
@@ -97,7 +109,24 @@ jobs:
           allure_history: allure-history
           keep_reports: 20
 
-      - name: Deploy Allure Report Directly to Live GitHub Pages 🚀
+      # 5. MERGE: Inject the Playwright HTML report into the subfolder of the Allure deployment directory
+      - name: Structure Consolidated Web Dashboard Directory
+        if: always()
+        run: |
+          echo "Merging report folders..."
+          # Creates a subfolder named 'playwright' inside the allure-report root
+          mkdir -p allure-report/playwright
+          
+          # Copy the compiled Playwright HTML report assets into the subfolder
+          if [ -d "playwright-report" ]; then
+            cp -r playwright-report/* allure-report/playwright/
+            echo "Successfully injected Playwright Report folder!"
+          else
+            echo "Warning: playwright-report directory not found."
+          fi
+
+      # 6. DEPLOY: Push everything up to gh-pages branch in one clean swipe
+      - name: Deploy Integrated Dashboards to Live GitHub Pages 🚀
         uses: peaceiris/actions-gh-pages@v4
         if: always()
         with:
