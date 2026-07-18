@@ -24,38 +24,43 @@ jobs:
       - name: Checkout Testing Code
         uses: actions/checkout@v4
 
-      # 1. MONITOR: Poll the public GitHub API for SwiftShop's Pages status
+      # 1. MONITOR: Poll the public GitHub Deployments API for SwiftShop's Pages status
       - name: Wait for Main App Deployment to be Ready 🌐
         run: |
-          echo "Checking the latest GitHub Pages deployment status for SwiftShop..."
+          echo "Checking the latest GitHub Pages environment deployment status for SwiftShop..."
           
-          # Replace 'dnpath' with your actual GitHub organization/username if different
           OWNER="dnpath"
           REPO="SwiftShop"
           
-          MAX_ATTEMPTS=5
+          MAX_ATTEMPTS=6
           SLEEP_DURATION=30
           
           for ((i=1; i<=MAX_ATTEMPTS; i++)); do
-            # Fetch the latest Pages deployment state from GitHub's public API
-            STATUS=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/pages/deployments/latest" | jq -r '.status // "unknown"')
+            # 1. Fetch the latest deployment ID specifically assigned to the github-pages environment
+            DEPLOYMENT_ID=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/deployments?environment=github-pages&per_page=1" | jq -r '.[0].id // "null"')
             
-            echo "Attempt $i: Current deployment status is '$STATUS'"
-            
-            if [ "$STATUS" = "SUCCESS" ]; then
-              echo "✅ SwiftShop live deployment is verified active and stable!"
-              exit 0
-            elif [ "$STATUS" = "FAIL" ]; then
-              echo "❌ Main application build has failed on its side. Aborting test run."
-              exit 1
+            if [ "$DEPLOYMENT_ID" = "null" ]; then
+              echo "Attempt $i: No GitHub Pages deployments discovered yet."
+            else
+              # 2. Fetch the deployment's status histories using its unique ID
+              STATUS=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/deployments/$DEPLOYMENT_ID/statuses?per_page=1" | jq -r '.[0].state // "unknown"')
+              
+              echo "Attempt $i: Current deployment state for ID $DEPLOYMENT_ID is '$STATUS'"
+              
+              if [ "$STATUS" = "success" ]; then
+                echo "✅ SwiftShop live deployment is verified active, successful, and stable!"
+                exit 0
+              elif [ "$STATUS" = "failure" ] || [ "$STATUS" = "error" ]; then
+                echo "❌ Main application build has failed deployment. Aborting test run."
+                exit 1
+              fi
             fi
             
-            echo "Waiting $SLEEP_DURATION seconds for deployment to settle..."
+            echo "Waiting $SLEEP_DURATION seconds for deployment status to resolve..."
             sleep $SLEEP_DURATION
           done
           
           echo "⚠️ Deployment monitoring timed out, but proceeding with regression checks anyway."
-
       # 2. EXECUTE: The rest of your framework execution proceeds normally
       - name: Setup Node.js
         uses: actions/setup-node@v4
